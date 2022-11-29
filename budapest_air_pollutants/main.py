@@ -54,7 +54,7 @@ def transform_data(
         df_tmp = pd.DataFrame()
         
         # scale down and interpolate
-        df = df.sort_values(by="date")
+        df = df.sort_values(by="date", ascending=True)
         df_tmp[ts_cols] = df[ts_cols]/quant.loc[0.95]
         df_tmp[ts_cols] = df_tmp[ts_cols].interpolate(method="linear")
         df_tmp["date"] = df["date"]
@@ -74,10 +74,10 @@ def get_predictions(
 
     dfs_new = {}
     for name, df_og in tqdm.tqdm(dfs.items()):
-        df = df_og.copy()
+        df = df_og.sort_values(by="date", ascending=True).copy()
         arr = df[-n_pred:][ts_cols].values
         
-        for i in range(100):
+        for i in range(n_pred):
             arr = np.append(
                 arr,
                 model.predict(arr[-timesteps:].reshape(1, timesteps, INPUT_LEN), verbose=False),
@@ -86,7 +86,7 @@ def get_predictions(
 
         df_tmp = pd.DataFrame(columns=ts_cols, data=arr)
         df_tmp["date"] = df["date"]
-        dfs_new[name] = df_tmp
+        dfs_new[name] = df_tmp.sort_values(by="date", ascending=True)
 
     return dfs_new
 
