@@ -98,10 +98,10 @@ def save_data(
     typer.echo("Saving predictions")
 
     for name, df in tqdm.tqdm(dfs.items()):
-        df.to_csv(f"{final_data_dir}/{name}_true.csv")
+        df.to_csv(f"{final_data_dir}/{name}_true.csv", index=False)
 
     for name, df in tqdm.tqdm(dfs_pred.items()):
-        df.to_csv(f"{final_data_dir}/{name}_pred.csv")
+        df.to_csv(f"{final_data_dir}/{name}_pred.csv", index=False)
 
 
 def main():
