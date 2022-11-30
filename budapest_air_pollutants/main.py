@@ -29,18 +29,23 @@ def load_data() -> t.Dict[str, pd.DataFrame]:
         path.split("/")[-1].replace(".csv", ""): pd.read_csv(path)
         for path in glob.glob(f"{data_dir}/*")
     }
-    
-    # data columns
+    dfs_new = {}
 
     # formatting of data
-    for name, df in tqdm.tqdm(dfs.items()):
+    for name, df_og in tqdm.tqdm(dfs.items()):
+        df = df_og.copy()
+        
         df.columns = [c.strip() for c in df.columns]
         df["date"] = pd.to_datetime(df["date"])
+        df = df.sort_values(by="date", ascending=True)
+        df = df.set_index("date")
         
         for val in ts_cols:
             df[val] = df[val].apply(lambda x: float(x) if str(x).strip().isnumeric() else np.nan)
+        
+        dfs_new[name] = df
 
-    return dfs
+    return dfs_new
 
 
 def transform_data(
@@ -54,10 +59,8 @@ def transform_data(
         df_tmp = pd.DataFrame()
         
         # scale down and interpolate
-        df = df.sort_values(by="date", ascending=True)
         df_tmp[ts_cols] = df[ts_cols]/quant.loc[0.95]
         df_tmp[ts_cols] = df_tmp[ts_cols].interpolate(method="linear")
-        df_tmp["date"] = df["date"]
         
         df_features = df_tmp.iloc[-300:]
         dfs_new[name] = df_features
@@ -74,8 +77,8 @@ def get_predictions(
 
     dfs_new = {}
     for name, df_og in tqdm.tqdm(dfs.items()):
-        df = df_og.sort_values(by="date", ascending=True).copy()
-        arr = df[-n_pred:][ts_cols].values
+        df = df_og.copy()[:-n_pred]
+        arr = df[ts_cols].values
         
         for i in range(n_pred):
             arr = np.append(
@@ -84,9 +87,8 @@ def get_predictions(
                 axis=0
             )
 
-        df_tmp = pd.DataFrame(columns=ts_cols, data=arr)
-        df_tmp["date"] = df["date"]
-        dfs_new[name] = df_tmp.sort_values(by="date", ascending=True)
+        df_tmp = pd.DataFrame(columns=ts_cols, data=arr, index=df_og.index.copy())
+        dfs_new[name] = df_tmp
 
     return dfs_new
 
@@ -98,10 +100,10 @@ def save_data(
     typer.echo("Saving predictions")
 
     for name, df in tqdm.tqdm(dfs.items()):
-        df.to_csv(f"{final_data_dir}/{name}_true.csv", index=False)
+        df.to_csv(f"{final_data_dir}/{name}_true.csv", index=True)
 
     for name, df in tqdm.tqdm(dfs_pred.items()):
-        df.to_csv(f"{final_data_dir}/{name}_pred.csv", index=False)
+        df.to_csv(f"{final_data_dir}/{name}_pred.csv", index=True)
 
 
 def main():
