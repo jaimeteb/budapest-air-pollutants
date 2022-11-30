@@ -73,6 +73,7 @@ def transform_data(
 def get_predictions(
     dfs: t.Dict[str, pd.DataFrame],
     model: models.Model,
+    quant: pd.DataFrame,
     n_pred: int = 50,
 ) -> t.Dict[str, pd.DataFrame]:
     typer.echo("Generating predictions")
@@ -95,7 +96,13 @@ def get_predictions(
         df_tmp = pd.DataFrame(columns=ts_cols, data=arr, index=df_og.index.copy())
         dfs_new[name] = df_tmp
 
-        dfs_joined[name] = df_og.join(df_tmp[-n_pred:], on="date", rsuffix="_predicted")
+        df_tmp[ts_cols] = df_tmp[ts_cols] * quant.loc[0.95]
+        df_og_tmp = df_og.copy()
+        df_og_tmp[ts_cols] = df_og_tmp[ts_cols] * quant.loc[0.95]
+
+        dfs_joined[name] = df_og_tmp.join(
+            df_tmp[-n_pred:], on="date", rsuffix="_predicted"
+        )
 
     return dfs_new, dfs_joined
 
@@ -107,11 +114,11 @@ def save_data(
 ) -> None:
     typer.echo("Saving predictions")
 
-    for name, df in tqdm.tqdm(dfs.items()):
-        df.to_csv(f"{final_data_dir}/{name}_true.csv", index=True)
+    # for name, df in tqdm.tqdm(dfs.items()):
+    #     df.to_csv(f"{final_data_dir}/{name}_true.csv", index=True)
 
-    for name, df in tqdm.tqdm(dfs_pred.items()):
-        df.to_csv(f"{final_data_dir}/{name}_pred.csv", index=True)
+    # for name, df in tqdm.tqdm(dfs_pred.items()):
+    #     df.to_csv(f"{final_data_dir}/{name}_pred.csv", index=True)
 
     for name, df in tqdm.tqdm(dfs_joined.items()):
         df.to_csv(f"{final_data_dir}/{name}_joined.csv", index=True)
@@ -122,7 +129,7 @@ def main():
     quant = pd.read_csv(f"{models_dir}/quant.csv", index_col=0)
     dfs = transform_data(dfs, quant)
     model = models.load_model(f"{models_dir}/model.h5")
-    dfs_pred, dfs_joined = get_predictions(dfs, model)
+    dfs_pred, dfs_joined = get_predictions(dfs, model, quant)
     save_data(dfs, dfs_pred, dfs_joined)
 
 
